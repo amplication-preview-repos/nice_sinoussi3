@@ -16,17 +16,35 @@ import * as errors from "../../errors";
 import { Request } from "express";
 import { plainToClass } from "class-transformer";
 import { ApiNestedQuery } from "../../decorators/api-nested-query.decorator";
+import * as nestAccessControl from "nest-access-control";
+import * as defaultAuthGuard from "../../auth/defaultAuth.guard";
 import { InterestService } from "../interest.service";
+import { AclValidateRequestInterceptor } from "../../interceptors/aclValidateRequest.interceptor";
+import { AclFilterResponseInterceptor } from "../../interceptors/aclFilterResponse.interceptor";
 import { InterestCreateInput } from "./InterestCreateInput";
 import { Interest } from "./Interest";
 import { InterestFindManyArgs } from "./InterestFindManyArgs";
 import { InterestWhereUniqueInput } from "./InterestWhereUniqueInput";
 import { InterestUpdateInput } from "./InterestUpdateInput";
 
+@swagger.ApiBearerAuth()
+@common.UseGuards(defaultAuthGuard.DefaultAuthGuard, nestAccessControl.ACGuard)
 export class InterestControllerBase {
-  constructor(protected readonly service: InterestService) {}
+  constructor(
+    protected readonly service: InterestService,
+    protected readonly rolesBuilder: nestAccessControl.RolesBuilder
+  ) {}
+  @common.UseInterceptors(AclValidateRequestInterceptor)
   @common.Post()
   @swagger.ApiCreatedResponse({ type: Interest })
+  @nestAccessControl.UseRoles({
+    resource: "Interest",
+    action: "create",
+    possession: "any",
+  })
+  @swagger.ApiForbiddenResponse({
+    type: errors.ForbiddenException,
+  })
   async createInterest(
     @common.Body() data: InterestCreateInput
   ): Promise<Interest> {
@@ -56,9 +74,18 @@ export class InterestControllerBase {
     });
   }
 
+  @common.UseInterceptors(AclFilterResponseInterceptor)
   @common.Get()
   @swagger.ApiOkResponse({ type: [Interest] })
   @ApiNestedQuery(InterestFindManyArgs)
+  @nestAccessControl.UseRoles({
+    resource: "Interest",
+    action: "read",
+    possession: "any",
+  })
+  @swagger.ApiForbiddenResponse({
+    type: errors.ForbiddenException,
+  })
   async interests(@common.Req() request: Request): Promise<Interest[]> {
     const args = plainToClass(InterestFindManyArgs, request.query);
     return this.service.interests({
@@ -79,9 +106,18 @@ export class InterestControllerBase {
     });
   }
 
+  @common.UseInterceptors(AclFilterResponseInterceptor)
   @common.Get("/:id")
   @swagger.ApiOkResponse({ type: Interest })
   @swagger.ApiNotFoundResponse({ type: errors.NotFoundException })
+  @nestAccessControl.UseRoles({
+    resource: "Interest",
+    action: "read",
+    possession: "own",
+  })
+  @swagger.ApiForbiddenResponse({
+    type: errors.ForbiddenException,
+  })
   async interest(
     @common.Param() params: InterestWhereUniqueInput
   ): Promise<Interest | null> {
@@ -109,9 +145,18 @@ export class InterestControllerBase {
     return result;
   }
 
+  @common.UseInterceptors(AclValidateRequestInterceptor)
   @common.Patch("/:id")
   @swagger.ApiOkResponse({ type: Interest })
   @swagger.ApiNotFoundResponse({ type: errors.NotFoundException })
+  @nestAccessControl.UseRoles({
+    resource: "Interest",
+    action: "update",
+    possession: "any",
+  })
+  @swagger.ApiForbiddenResponse({
+    type: errors.ForbiddenException,
+  })
   async updateInterest(
     @common.Param() params: InterestWhereUniqueInput,
     @common.Body() data: InterestUpdateInput
@@ -155,6 +200,14 @@ export class InterestControllerBase {
   @common.Delete("/:id")
   @swagger.ApiOkResponse({ type: Interest })
   @swagger.ApiNotFoundResponse({ type: errors.NotFoundException })
+  @nestAccessControl.UseRoles({
+    resource: "Interest",
+    action: "delete",
+    possession: "any",
+  })
+  @swagger.ApiForbiddenResponse({
+    type: errors.ForbiddenException,
+  })
   async deleteInterest(
     @common.Param() params: InterestWhereUniqueInput
   ): Promise<Interest | null> {

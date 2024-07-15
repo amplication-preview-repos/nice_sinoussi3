@@ -13,6 +13,12 @@ import * as graphql from "@nestjs/graphql";
 import { GraphQLError } from "graphql";
 import { isRecordNotFoundError } from "../../prisma.util";
 import { MetaQueryPayload } from "../../util/MetaQueryPayload";
+import * as nestAccessControl from "nest-access-control";
+import * as gqlACGuard from "../../auth/gqlAC.guard";
+import { GqlDefaultAuthGuard } from "../../auth/gqlDefaultAuth.guard";
+import * as common from "@nestjs/common";
+import { AclFilterResponseInterceptor } from "../../interceptors/aclFilterResponse.interceptor";
+import { AclValidateRequestInterceptor } from "../../interceptors/aclValidateRequest.interceptor";
 import { LockedFunds } from "./LockedFunds";
 import { LockedFundsCountArgs } from "./LockedFundsCountArgs";
 import { LockedFundsFindManyArgs } from "./LockedFundsFindManyArgs";
@@ -22,10 +28,20 @@ import { UpdateLockedFundsArgs } from "./UpdateLockedFundsArgs";
 import { DeleteLockedFundsArgs } from "./DeleteLockedFundsArgs";
 import { Wallet } from "../../wallet/base/Wallet";
 import { LockedFundsService } from "../lockedFunds.service";
+@common.UseGuards(GqlDefaultAuthGuard, gqlACGuard.GqlACGuard)
 @graphql.Resolver(() => LockedFunds)
 export class LockedFundsResolverBase {
-  constructor(protected readonly service: LockedFundsService) {}
+  constructor(
+    protected readonly service: LockedFundsService,
+    protected readonly rolesBuilder: nestAccessControl.RolesBuilder
+  ) {}
 
+  @graphql.Query(() => MetaQueryPayload)
+  @nestAccessControl.UseRoles({
+    resource: "LockedFunds",
+    action: "read",
+    possession: "any",
+  })
   async _lockedFundsItemsMeta(
     @graphql.Args() args: LockedFundsCountArgs
   ): Promise<MetaQueryPayload> {
@@ -35,14 +51,26 @@ export class LockedFundsResolverBase {
     };
   }
 
+  @common.UseInterceptors(AclFilterResponseInterceptor)
   @graphql.Query(() => [LockedFunds])
+  @nestAccessControl.UseRoles({
+    resource: "LockedFunds",
+    action: "read",
+    possession: "any",
+  })
   async lockedFundsItems(
     @graphql.Args() args: LockedFundsFindManyArgs
   ): Promise<LockedFunds[]> {
     return this.service.lockedFundsItems(args);
   }
 
+  @common.UseInterceptors(AclFilterResponseInterceptor)
   @graphql.Query(() => LockedFunds, { nullable: true })
+  @nestAccessControl.UseRoles({
+    resource: "LockedFunds",
+    action: "read",
+    possession: "own",
+  })
   async lockedFunds(
     @graphql.Args() args: LockedFundsFindUniqueArgs
   ): Promise<LockedFunds | null> {
@@ -53,7 +81,13 @@ export class LockedFundsResolverBase {
     return result;
   }
 
+  @common.UseInterceptors(AclValidateRequestInterceptor)
   @graphql.Mutation(() => LockedFunds)
+  @nestAccessControl.UseRoles({
+    resource: "LockedFunds",
+    action: "create",
+    possession: "any",
+  })
   async createLockedFunds(
     @graphql.Args() args: CreateLockedFundsArgs
   ): Promise<LockedFunds> {
@@ -71,7 +105,13 @@ export class LockedFundsResolverBase {
     });
   }
 
+  @common.UseInterceptors(AclValidateRequestInterceptor)
   @graphql.Mutation(() => LockedFunds)
+  @nestAccessControl.UseRoles({
+    resource: "LockedFunds",
+    action: "update",
+    possession: "any",
+  })
   async updateLockedFunds(
     @graphql.Args() args: UpdateLockedFundsArgs
   ): Promise<LockedFunds | null> {
@@ -99,6 +139,11 @@ export class LockedFundsResolverBase {
   }
 
   @graphql.Mutation(() => LockedFunds)
+  @nestAccessControl.UseRoles({
+    resource: "LockedFunds",
+    action: "delete",
+    possession: "any",
+  })
   async deleteLockedFunds(
     @graphql.Args() args: DeleteLockedFundsArgs
   ): Promise<LockedFunds | null> {
@@ -114,9 +159,15 @@ export class LockedFundsResolverBase {
     }
   }
 
+  @common.UseInterceptors(AclFilterResponseInterceptor)
   @graphql.ResolveField(() => Wallet, {
     nullable: true,
     name: "wallet",
+  })
+  @nestAccessControl.UseRoles({
+    resource: "Wallet",
+    action: "read",
+    possession: "any",
   })
   async getWallet(
     @graphql.Parent() parent: LockedFunds

@@ -16,17 +16,35 @@ import * as errors from "../../errors";
 import { Request } from "express";
 import { plainToClass } from "class-transformer";
 import { ApiNestedQuery } from "../../decorators/api-nested-query.decorator";
+import * as nestAccessControl from "nest-access-control";
+import * as defaultAuthGuard from "../../auth/defaultAuth.guard";
 import { LockedFundsService } from "../lockedFunds.service";
+import { AclValidateRequestInterceptor } from "../../interceptors/aclValidateRequest.interceptor";
+import { AclFilterResponseInterceptor } from "../../interceptors/aclFilterResponse.interceptor";
 import { LockedFundsCreateInput } from "./LockedFundsCreateInput";
 import { LockedFunds } from "./LockedFunds";
 import { LockedFundsFindManyArgs } from "./LockedFundsFindManyArgs";
 import { LockedFundsWhereUniqueInput } from "./LockedFundsWhereUniqueInput";
 import { LockedFundsUpdateInput } from "./LockedFundsUpdateInput";
 
+@swagger.ApiBearerAuth()
+@common.UseGuards(defaultAuthGuard.DefaultAuthGuard, nestAccessControl.ACGuard)
 export class LockedFundsControllerBase {
-  constructor(protected readonly service: LockedFundsService) {}
+  constructor(
+    protected readonly service: LockedFundsService,
+    protected readonly rolesBuilder: nestAccessControl.RolesBuilder
+  ) {}
+  @common.UseInterceptors(AclValidateRequestInterceptor)
   @common.Post()
   @swagger.ApiCreatedResponse({ type: LockedFunds })
+  @nestAccessControl.UseRoles({
+    resource: "LockedFunds",
+    action: "create",
+    possession: "any",
+  })
+  @swagger.ApiForbiddenResponse({
+    type: errors.ForbiddenException,
+  })
   async createLockedFunds(
     @common.Body() data: LockedFundsCreateInput
   ): Promise<LockedFunds> {
@@ -57,9 +75,18 @@ export class LockedFundsControllerBase {
     });
   }
 
+  @common.UseInterceptors(AclFilterResponseInterceptor)
   @common.Get()
   @swagger.ApiOkResponse({ type: [LockedFunds] })
   @ApiNestedQuery(LockedFundsFindManyArgs)
+  @nestAccessControl.UseRoles({
+    resource: "LockedFunds",
+    action: "read",
+    possession: "any",
+  })
+  @swagger.ApiForbiddenResponse({
+    type: errors.ForbiddenException,
+  })
   async lockedFundsItems(
     @common.Req() request: Request
   ): Promise<LockedFunds[]> {
@@ -83,9 +110,18 @@ export class LockedFundsControllerBase {
     });
   }
 
+  @common.UseInterceptors(AclFilterResponseInterceptor)
   @common.Get("/:id")
   @swagger.ApiOkResponse({ type: LockedFunds })
   @swagger.ApiNotFoundResponse({ type: errors.NotFoundException })
+  @nestAccessControl.UseRoles({
+    resource: "LockedFunds",
+    action: "read",
+    possession: "own",
+  })
+  @swagger.ApiForbiddenResponse({
+    type: errors.ForbiddenException,
+  })
   async lockedFunds(
     @common.Param() params: LockedFundsWhereUniqueInput
   ): Promise<LockedFunds | null> {
@@ -114,9 +150,18 @@ export class LockedFundsControllerBase {
     return result;
   }
 
+  @common.UseInterceptors(AclValidateRequestInterceptor)
   @common.Patch("/:id")
   @swagger.ApiOkResponse({ type: LockedFunds })
   @swagger.ApiNotFoundResponse({ type: errors.NotFoundException })
+  @nestAccessControl.UseRoles({
+    resource: "LockedFunds",
+    action: "update",
+    possession: "any",
+  })
+  @swagger.ApiForbiddenResponse({
+    type: errors.ForbiddenException,
+  })
   async updateLockedFunds(
     @common.Param() params: LockedFundsWhereUniqueInput,
     @common.Body() data: LockedFundsUpdateInput
@@ -161,6 +206,14 @@ export class LockedFundsControllerBase {
   @common.Delete("/:id")
   @swagger.ApiOkResponse({ type: LockedFunds })
   @swagger.ApiNotFoundResponse({ type: errors.NotFoundException })
+  @nestAccessControl.UseRoles({
+    resource: "LockedFunds",
+    action: "delete",
+    possession: "any",
+  })
+  @swagger.ApiForbiddenResponse({
+    type: errors.ForbiddenException,
+  })
   async deleteLockedFunds(
     @common.Param() params: LockedFundsWhereUniqueInput
   ): Promise<LockedFunds | null> {

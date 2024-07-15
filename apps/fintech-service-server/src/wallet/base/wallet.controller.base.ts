@@ -16,7 +16,11 @@ import * as errors from "../../errors";
 import { Request } from "express";
 import { plainToClass } from "class-transformer";
 import { ApiNestedQuery } from "../../decorators/api-nested-query.decorator";
+import * as nestAccessControl from "nest-access-control";
+import * as defaultAuthGuard from "../../auth/defaultAuth.guard";
 import { WalletService } from "../wallet.service";
+import { AclValidateRequestInterceptor } from "../../interceptors/aclValidateRequest.interceptor";
+import { AclFilterResponseInterceptor } from "../../interceptors/aclFilterResponse.interceptor";
 import { WalletCreateInput } from "./WalletCreateInput";
 import { Wallet } from "./Wallet";
 import { WalletFindManyArgs } from "./WalletFindManyArgs";
@@ -32,10 +36,24 @@ import { LockedFundsFindManyArgs } from "../../lockedFunds/base/LockedFundsFindM
 import { LockedFunds } from "../../lockedFunds/base/LockedFunds";
 import { LockedFundsWhereUniqueInput } from "../../lockedFunds/base/LockedFundsWhereUniqueInput";
 
+@swagger.ApiBearerAuth()
+@common.UseGuards(defaultAuthGuard.DefaultAuthGuard, nestAccessControl.ACGuard)
 export class WalletControllerBase {
-  constructor(protected readonly service: WalletService) {}
+  constructor(
+    protected readonly service: WalletService,
+    protected readonly rolesBuilder: nestAccessControl.RolesBuilder
+  ) {}
+  @common.UseInterceptors(AclValidateRequestInterceptor)
   @common.Post()
   @swagger.ApiCreatedResponse({ type: Wallet })
+  @nestAccessControl.UseRoles({
+    resource: "Wallet",
+    action: "create",
+    possession: "any",
+  })
+  @swagger.ApiForbiddenResponse({
+    type: errors.ForbiddenException,
+  })
   async createWallet(@common.Body() data: WalletCreateInput): Promise<Wallet> {
     return await this.service.createWallet({
       data: {
@@ -62,9 +80,18 @@ export class WalletControllerBase {
     });
   }
 
+  @common.UseInterceptors(AclFilterResponseInterceptor)
   @common.Get()
   @swagger.ApiOkResponse({ type: [Wallet] })
   @ApiNestedQuery(WalletFindManyArgs)
+  @nestAccessControl.UseRoles({
+    resource: "Wallet",
+    action: "read",
+    possession: "any",
+  })
+  @swagger.ApiForbiddenResponse({
+    type: errors.ForbiddenException,
+  })
   async wallets(@common.Req() request: Request): Promise<Wallet[]> {
     const args = plainToClass(WalletFindManyArgs, request.query);
     return this.service.wallets({
@@ -84,9 +111,18 @@ export class WalletControllerBase {
     });
   }
 
+  @common.UseInterceptors(AclFilterResponseInterceptor)
   @common.Get("/:id")
   @swagger.ApiOkResponse({ type: Wallet })
   @swagger.ApiNotFoundResponse({ type: errors.NotFoundException })
+  @nestAccessControl.UseRoles({
+    resource: "Wallet",
+    action: "read",
+    possession: "own",
+  })
+  @swagger.ApiForbiddenResponse({
+    type: errors.ForbiddenException,
+  })
   async wallet(
     @common.Param() params: WalletWhereUniqueInput
   ): Promise<Wallet | null> {
@@ -113,9 +149,18 @@ export class WalletControllerBase {
     return result;
   }
 
+  @common.UseInterceptors(AclValidateRequestInterceptor)
   @common.Patch("/:id")
   @swagger.ApiOkResponse({ type: Wallet })
   @swagger.ApiNotFoundResponse({ type: errors.NotFoundException })
+  @nestAccessControl.UseRoles({
+    resource: "Wallet",
+    action: "update",
+    possession: "any",
+  })
+  @swagger.ApiForbiddenResponse({
+    type: errors.ForbiddenException,
+  })
   async updateWallet(
     @common.Param() params: WalletWhereUniqueInput,
     @common.Body() data: WalletUpdateInput
@@ -158,6 +203,14 @@ export class WalletControllerBase {
   @common.Delete("/:id")
   @swagger.ApiOkResponse({ type: Wallet })
   @swagger.ApiNotFoundResponse({ type: errors.NotFoundException })
+  @nestAccessControl.UseRoles({
+    resource: "Wallet",
+    action: "delete",
+    possession: "any",
+  })
+  @swagger.ApiForbiddenResponse({
+    type: errors.ForbiddenException,
+  })
   async deleteWallet(
     @common.Param() params: WalletWhereUniqueInput
   ): Promise<Wallet | null> {
@@ -187,8 +240,14 @@ export class WalletControllerBase {
     }
   }
 
+  @common.UseInterceptors(AclFilterResponseInterceptor)
   @common.Get("/:id/deposits")
   @ApiNestedQuery(DepositFindManyArgs)
+  @nestAccessControl.UseRoles({
+    resource: "Deposit",
+    action: "read",
+    possession: "any",
+  })
   async findDeposits(
     @common.Req() request: Request,
     @common.Param() params: WalletWhereUniqueInput
@@ -219,6 +278,11 @@ export class WalletControllerBase {
   }
 
   @common.Post("/:id/deposits")
+  @nestAccessControl.UseRoles({
+    resource: "Wallet",
+    action: "update",
+    possession: "any",
+  })
   async connectDeposits(
     @common.Param() params: WalletWhereUniqueInput,
     @common.Body() body: DepositWhereUniqueInput[]
@@ -236,6 +300,11 @@ export class WalletControllerBase {
   }
 
   @common.Patch("/:id/deposits")
+  @nestAccessControl.UseRoles({
+    resource: "Wallet",
+    action: "update",
+    possession: "any",
+  })
   async updateDeposits(
     @common.Param() params: WalletWhereUniqueInput,
     @common.Body() body: DepositWhereUniqueInput[]
@@ -253,6 +322,11 @@ export class WalletControllerBase {
   }
 
   @common.Delete("/:id/deposits")
+  @nestAccessControl.UseRoles({
+    resource: "Wallet",
+    action: "update",
+    possession: "any",
+  })
   async disconnectDeposits(
     @common.Param() params: WalletWhereUniqueInput,
     @common.Body() body: DepositWhereUniqueInput[]
@@ -269,8 +343,14 @@ export class WalletControllerBase {
     });
   }
 
+  @common.UseInterceptors(AclFilterResponseInterceptor)
   @common.Get("/:id/interests")
   @ApiNestedQuery(InterestFindManyArgs)
+  @nestAccessControl.UseRoles({
+    resource: "Interest",
+    action: "read",
+    possession: "any",
+  })
   async findInterests(
     @common.Req() request: Request,
     @common.Param() params: WalletWhereUniqueInput
@@ -301,6 +381,11 @@ export class WalletControllerBase {
   }
 
   @common.Post("/:id/interests")
+  @nestAccessControl.UseRoles({
+    resource: "Wallet",
+    action: "update",
+    possession: "any",
+  })
   async connectInterests(
     @common.Param() params: WalletWhereUniqueInput,
     @common.Body() body: InterestWhereUniqueInput[]
@@ -318,6 +403,11 @@ export class WalletControllerBase {
   }
 
   @common.Patch("/:id/interests")
+  @nestAccessControl.UseRoles({
+    resource: "Wallet",
+    action: "update",
+    possession: "any",
+  })
   async updateInterests(
     @common.Param() params: WalletWhereUniqueInput,
     @common.Body() body: InterestWhereUniqueInput[]
@@ -335,6 +425,11 @@ export class WalletControllerBase {
   }
 
   @common.Delete("/:id/interests")
+  @nestAccessControl.UseRoles({
+    resource: "Wallet",
+    action: "update",
+    possession: "any",
+  })
   async disconnectInterests(
     @common.Param() params: WalletWhereUniqueInput,
     @common.Body() body: InterestWhereUniqueInput[]
@@ -351,8 +446,14 @@ export class WalletControllerBase {
     });
   }
 
+  @common.UseInterceptors(AclFilterResponseInterceptor)
   @common.Get("/:id/lockedFundsItems")
   @ApiNestedQuery(LockedFundsFindManyArgs)
+  @nestAccessControl.UseRoles({
+    resource: "LockedFunds",
+    action: "read",
+    possession: "any",
+  })
   async findLockedFundsItems(
     @common.Req() request: Request,
     @common.Param() params: WalletWhereUniqueInput
@@ -384,6 +485,11 @@ export class WalletControllerBase {
   }
 
   @common.Post("/:id/lockedFundsItems")
+  @nestAccessControl.UseRoles({
+    resource: "Wallet",
+    action: "update",
+    possession: "any",
+  })
   async connectLockedFundsItems(
     @common.Param() params: WalletWhereUniqueInput,
     @common.Body() body: LockedFundsWhereUniqueInput[]
@@ -401,6 +507,11 @@ export class WalletControllerBase {
   }
 
   @common.Patch("/:id/lockedFundsItems")
+  @nestAccessControl.UseRoles({
+    resource: "Wallet",
+    action: "update",
+    possession: "any",
+  })
   async updateLockedFundsItems(
     @common.Param() params: WalletWhereUniqueInput,
     @common.Body() body: LockedFundsWhereUniqueInput[]
@@ -418,6 +529,11 @@ export class WalletControllerBase {
   }
 
   @common.Delete("/:id/lockedFundsItems")
+  @nestAccessControl.UseRoles({
+    resource: "Wallet",
+    action: "update",
+    possession: "any",
+  })
   async disconnectLockedFundsItems(
     @common.Param() params: WalletWhereUniqueInput,
     @common.Body() body: LockedFundsWhereUniqueInput[]

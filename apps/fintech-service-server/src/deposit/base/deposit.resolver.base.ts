@@ -13,6 +13,12 @@ import * as graphql from "@nestjs/graphql";
 import { GraphQLError } from "graphql";
 import { isRecordNotFoundError } from "../../prisma.util";
 import { MetaQueryPayload } from "../../util/MetaQueryPayload";
+import * as nestAccessControl from "nest-access-control";
+import * as gqlACGuard from "../../auth/gqlAC.guard";
+import { GqlDefaultAuthGuard } from "../../auth/gqlDefaultAuth.guard";
+import * as common from "@nestjs/common";
+import { AclFilterResponseInterceptor } from "../../interceptors/aclFilterResponse.interceptor";
+import { AclValidateRequestInterceptor } from "../../interceptors/aclValidateRequest.interceptor";
 import { Deposit } from "./Deposit";
 import { DepositCountArgs } from "./DepositCountArgs";
 import { DepositFindManyArgs } from "./DepositFindManyArgs";
@@ -22,10 +28,20 @@ import { UpdateDepositArgs } from "./UpdateDepositArgs";
 import { DeleteDepositArgs } from "./DeleteDepositArgs";
 import { Wallet } from "../../wallet/base/Wallet";
 import { DepositService } from "../deposit.service";
+@common.UseGuards(GqlDefaultAuthGuard, gqlACGuard.GqlACGuard)
 @graphql.Resolver(() => Deposit)
 export class DepositResolverBase {
-  constructor(protected readonly service: DepositService) {}
+  constructor(
+    protected readonly service: DepositService,
+    protected readonly rolesBuilder: nestAccessControl.RolesBuilder
+  ) {}
 
+  @graphql.Query(() => MetaQueryPayload)
+  @nestAccessControl.UseRoles({
+    resource: "Deposit",
+    action: "read",
+    possession: "any",
+  })
   async _depositsMeta(
     @graphql.Args() args: DepositCountArgs
   ): Promise<MetaQueryPayload> {
@@ -35,14 +51,26 @@ export class DepositResolverBase {
     };
   }
 
+  @common.UseInterceptors(AclFilterResponseInterceptor)
   @graphql.Query(() => [Deposit])
+  @nestAccessControl.UseRoles({
+    resource: "Deposit",
+    action: "read",
+    possession: "any",
+  })
   async deposits(
     @graphql.Args() args: DepositFindManyArgs
   ): Promise<Deposit[]> {
     return this.service.deposits(args);
   }
 
+  @common.UseInterceptors(AclFilterResponseInterceptor)
   @graphql.Query(() => Deposit, { nullable: true })
+  @nestAccessControl.UseRoles({
+    resource: "Deposit",
+    action: "read",
+    possession: "own",
+  })
   async deposit(
     @graphql.Args() args: DepositFindUniqueArgs
   ): Promise<Deposit | null> {
@@ -53,7 +81,13 @@ export class DepositResolverBase {
     return result;
   }
 
+  @common.UseInterceptors(AclValidateRequestInterceptor)
   @graphql.Mutation(() => Deposit)
+  @nestAccessControl.UseRoles({
+    resource: "Deposit",
+    action: "create",
+    possession: "any",
+  })
   async createDeposit(
     @graphql.Args() args: CreateDepositArgs
   ): Promise<Deposit> {
@@ -71,7 +105,13 @@ export class DepositResolverBase {
     });
   }
 
+  @common.UseInterceptors(AclValidateRequestInterceptor)
   @graphql.Mutation(() => Deposit)
+  @nestAccessControl.UseRoles({
+    resource: "Deposit",
+    action: "update",
+    possession: "any",
+  })
   async updateDeposit(
     @graphql.Args() args: UpdateDepositArgs
   ): Promise<Deposit | null> {
@@ -99,6 +139,11 @@ export class DepositResolverBase {
   }
 
   @graphql.Mutation(() => Deposit)
+  @nestAccessControl.UseRoles({
+    resource: "Deposit",
+    action: "delete",
+    possession: "any",
+  })
   async deleteDeposit(
     @graphql.Args() args: DeleteDepositArgs
   ): Promise<Deposit | null> {
@@ -114,9 +159,15 @@ export class DepositResolverBase {
     }
   }
 
+  @common.UseInterceptors(AclFilterResponseInterceptor)
   @graphql.ResolveField(() => Wallet, {
     nullable: true,
     name: "wallet",
+  })
+  @nestAccessControl.UseRoles({
+    resource: "Wallet",
+    action: "read",
+    possession: "any",
   })
   async getWallet(@graphql.Parent() parent: Deposit): Promise<Wallet | null> {
     const result = await this.service.getWallet(parent.id);
